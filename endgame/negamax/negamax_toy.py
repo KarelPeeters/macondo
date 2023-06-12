@@ -9,10 +9,13 @@ class Node:
         self.score2 = score2
         self.onturn = onturn
         self.children = []
-    
+
     def __repr__(self):
         return f"<Node: Board {self.board}, Racks: {self.rack1} - {self.rack2}, Scores: {self.score1} - {self.score2}, Onturn: {self.onturn}>"
-    
+
+    def hash_key(self):
+        return self.board, self.rack1, self.rack2, self.onturn
+
     def spread_for(self, player):
         spread = self.score1 - self.score2
         if player == 1:
@@ -36,39 +39,39 @@ topState.children[1].children[0].children = [
     Node("RADAR/ T T / E   ", "", "E", 42, 22, 1)]
 
 
-def evaluate(node):
-    onturn = node.onturn
-    spreadNow = node.score1 - node.score2
-    initialSpread = beginningSpread
-
-    if onturn == 1:
-        spreadNow = -spreadNow
-        initialSpread = -initialSpread
-
-    return spreadNow - initialSpread
-
-# beginning spread is relative to left player (1)
-beginningSpread = topState.score1 - topState.score2
-
-def negamax(node, depth):
+def negamax(node, depth, tt):
     if depth == 0 or len(node.children) == 0:
-        evaluation = evaluate(node)
+        evaluation = node.spread_for(node.onturn)
         print("  " * depth, "evaluation returned", evaluation)
         return evaluation
-    value = -100000
+
     our_spread = node.spread_for(node.onturn)
+
+    # try hash lookup
+    if node.hash_key() in tt:
+        tt_value = tt[node.hash_key()]
+        print("  " * depth, "i would load", tt_value)
+        print("  " * depth, "i would return", our_spread + tt_value)
+
+    value = -100000
+
     for child in node.children:
         cur_our_spread = child.spread_for(node.onturn)
         spread_change = cur_our_spread - our_spread
 
-        negavalue = negamax(child, depth-1)
-        print ("  " * depth, "- child", child, "negavalue", -negavalue, "spread change", spread_change)
+        negavalue = negamax(child, depth - 1, tt)
+        print("  " * depth, "- child", child, "negavalue", -negavalue, "spread change", spread_change)
         value = max(value, -negavalue)
+
     print("  " * depth, "node", node, "value returned for this node", value)
-    print("  " * depth, "i would store", value )
+
+    print("  " * depth, "i would store", value - our_spread)
+    tt[node.hash_key()] = value - our_spread
+
     return value
 
 
 if __name__ == '__main__':
     print("beginning state", topState)
-    print(negamax(topState, depth=3))
+    tt = {}
+    print(negamax(topState, depth=3, tt={}))
